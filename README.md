@@ -39,8 +39,8 @@ The detector is intended as a candidate discovery and triage tool. It reports su
 Clone the repository and install the Python dependencies:
 
 ```bash
-git clone <your-repo-url>
-cd detect-rRNA-intron-by-blastn
+gh repo clone ypchan/detect_rRNA_intron_by_blastn
+cd ddetect_rRNA_intron_by_blastn
 python -m pip install -r requirements.txt
 ```
 
