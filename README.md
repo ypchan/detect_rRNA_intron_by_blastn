@@ -109,19 +109,8 @@ Exactly one of `--blast`, `--db`, or `--ref-fasta` must be supplied.
 
 ## Algorithm Details
 
-```mermaid
-flowchart TD
-    A["Query 16S FASTA"] --> B["BLAST HSP table"]
-    C["Reference FASTA or BLAST DB"] --> B
-    B --> D["Filter HSPs by percent identity and length"]
-    D --> E["Keep top subjects per query by summed bitscore"]
-    E --> F["Find intron-like HSP pairs per subject"]
-    F --> G["Keep the best pair for each subject"]
-    G --> H["Cluster pairs by similar query breakpoints"]
-    H --> I["Choose the strongest support cluster"]
-    I --> J["Use best subject pair coordinates"]
-    J --> K["Classify confidence and write outputs"]
-```
+![algorithm details](figures/algorithm_framework.png)
+
 
 ### 1. HSP parsing and filtering
 
