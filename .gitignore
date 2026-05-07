@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local configuration
+.env
+.env.*
+
+# Generated run outputs
+out/
+output/
+outputs/
+intron_scan/
+blast/
+reference/
+results/
+*.summary.tsv
+*.supporting_hsps.tsv
+*.report.md
+*.introns.fa
+*.intron_free.fa
+*.introns.bed
+*.exons.bed
+
+# BLAST database files
+*.nhr
+*.nin
+*.nsq
+*.ndb
+*.not
+*.ntf
+*.nto
+*.nog
+*.nos
+*.njs
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
