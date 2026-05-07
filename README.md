@@ -2,7 +2,7 @@
 
 BLASTN HSP-gap support detector for candidate intron-containing 16S rRNA sequences.
 
-This repository contains a single command-line tool, `detect_rRNA_intron_by_blastn.py`, that scans 16S rRNA FASTA records for intron-like insertions. It detects cases where a query sequence aligns to a reference sequence in two high-scoring BLASTN segments, with a sizeable gap in the query but little or no gap in the reference.
+This repository contains two command-line tools. `detect_rRNA_intron_by_blastn.py` scans 16S rRNA FASTA records for intron-like insertions, and `map_introns_to_reference.py` projects detected intron positions onto a standard full-length reference coordinate system.
 
 ```text
 query:     [HSP 1] ---- candidate intron ---- [HSP 2]
@@ -19,12 +19,14 @@ The detector is intended as a candidate discovery and triage tool. It reports su
 - Uses split-HSP geometry and multiple reference subjects to assign LOW, MEDIUM, or HIGH confidence.
 - Reports final intron coordinates from the best supporting subject pair, not from a cluster median.
 - Writes summary TSV, supporting-HSP TSV, intron FASTA, intron-free FASTA, BED files, and a Markdown report.
+- Maps intron insertion sites from intron-containing query coordinates onto a standard reference sequence.
 
 ## Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Input Modes](#input-modes)
+- [Reference-Coordinate Mapping](#reference-coordinate-mapping)
 - [Algorithm Details](#algorithm-details)
 - [Coordinate System](#coordinate-system)
 - [Outputs](#outputs)
@@ -40,9 +42,9 @@ Clone the repository and install the Python dependencies:
 
 ```bash
 gh repo clone ypchan/detect_rRNA_intron_by_blastn
-cd ddetect_rRNA_intron_by_blastn
+cd detect_rRNA_intron_by_blastn
 python -m pip install -r requirements.txt
-chmod 755 detect_rRNA_intron_by_blastn.py
+chmod 755 detect_rRNA_intron_by_blastn.py map_introns_to_reference.py
 abspath=$(realpath detect_rRNA_intron_by_blastn.py)
 ln -s ${abspath} "$HOME/bin"
 ```
@@ -109,6 +111,39 @@ Exactly one of `--blast`, `--db`, or `--ref-fasta` must be supplied.
 | `--blast` | Reads a precomputed BLASTN outfmt 6 table. | None |
 | `--db` | Runs `blastn` from query FASTA against an existing nucleotide BLAST database. | `blastn` |
 | `--ref-fasta` | Filters a SILVA-style FASTA, writes reference FASTA and taxonomy TSV, builds a BLAST database, then runs `blastn`. | `makeblastdb`, `blastn` |
+
+## Reference-Coordinate Mapping
+
+After intron detection, use `map_introns_to_reference.py` to place each detected intron onto a standard full-length reference sequence, such as a curated 16S reference used by your project.
+
+```bash
+python map_introns_to_reference.py \
+  --summary intron_scan/results/sample.summary.tsv \
+  --intron-free-fasta intron_scan/results/sample.intron_free.fa \
+  --reference standard_full_length_16s.fa \
+  --out-tsv intron_scan/results/sample.reference_introns.tsv \
+  --out-bed intron_scan/results/sample.reference_introns.bed
+```
+
+The mapping logic is:
+
+1. Read each intron call from `*.summary.tsv`.
+2. Convert the original query intron interval into an insertion boundary on the intron-free sequence:
+
+```text
+intron-free insertion boundary = after position (query intron_start - 1)
+```
+
+3. Align the intron-free sequence to the standard reference with a pure-Python fitting alignment. The full intron-free query is aligned, while unaligned leading and trailing reference bases are free. This supports both full-length and partial rRNA sequences.
+4. If `--strand both` is used, align both the original intron-free sequence and its reverse complement, then keep the better-scoring orientation.
+5. Project the intron-free insertion boundary through the alignment to the nearest mapped reference bases on the left and right.
+6. Report the intron as a reference-relative insertion site, for example:
+
+```text
+standard_16S:between:788-789
+```
+
+This means the intron is inserted between reference positions 788 and 789 in 1-based reference coordinates. If the flanking bases map across a reference gap or deletion, the script reports a `span` coordinate rather than pretending the site is exact.
 
 ## Algorithm Details
 
@@ -247,6 +282,13 @@ Main result files:
 | `results/sample.exons.bed` | Exon intervals flanking each candidate intron. |
 | `results/sample.report.md` | Human-readable run report with inputs, parameters, counts, and top candidates. |
 
+Reference-coordinate mapping files from `map_introns_to_reference.py`:
+
+| File | Description |
+|---|---|
+| `results/sample.reference_introns.tsv` | Reference-relative intron insertion positions, mapping status, alignment identity, orientation, and flanking reference coordinates. |
+| `results/sample.reference_introns.bed` | Optional BED representation of mapped insertion sites or uncertainty intervals on the standard reference. |
+
 Reference-mode intermediates:
 
 | File | Description |
@@ -331,6 +373,25 @@ Reference-mode intermediates:
 | `--threads` | integer | `4` | Worker threads for query analysis; also passed to BLASTN as `-num_threads`. |
 | `--verbose` | flag | disabled | Print debug-level logs. |
 
+### Reference mapping utility
+
+These parameters belong to `map_introns_to_reference.py`.
+
+| Parameter | Type | Default | Description |
+|---|---:|---:|---|
+| `--summary` | path | none | Summary TSV from `detect_rRNA_intron_by_blastn.py`. Required. |
+| `--intron-free-fasta` | path | none | Intron-free FASTA from `detect_rRNA_intron_by_blastn.py`. Required. |
+| `--reference` | path | none | Standard full-length reference FASTA/FASTA.gz. Required. |
+| `--reference-id` | string | none | Reference record ID to use when the reference FASTA contains more than one sequence. |
+| `--out-tsv` | path | derived from `--summary` | Output TSV with reference-relative coordinates. |
+| `--out-bed` | path | none | Optional BED output path for mapped insertion sites. |
+| `--min-confidence` | choice | `LOW` | Minimum intron confidence from the detector summary to map. Choices: `LOW`, `MEDIUM`, `HIGH`. |
+| `--strand` | choice | `both` | Use only plus-strand alignment or choose the better of plus and reverse-complement alignments. Choices: `plus`, `both`. |
+| `--min-alignment-identity` | float | `0.0` | Flag mapped rows below this percent identity as `mapped_low_identity`. |
+| `--match-score` | integer | `2` | Match score for the internal fitting alignment. |
+| `--mismatch-score` | integer | `-3` | Mismatch score for the internal fitting alignment. |
+| `--gap-score` | integer | `-5` | Linear gap score for the internal fitting alignment. |
+
 ## Reference Preprocessing
 
 When `--ref-fasta` is used, the script expects SILVA-style headers:
@@ -371,6 +432,8 @@ This option is useful when the reference set may itself contain intron-bearing 1
 - Closely related reference sequences generally improve breakpoint precision.
 - Very fragmented assemblies, chimeric 16S sequences, poor reference coverage, or repetitive regions can create false positives.
 - If no taxonomy table is supplied, confidence can still be LOW, but MEDIUM/HIGH support based on taxonomic diversity may be limited.
+- Reference-coordinate mapping depends on the chosen standard reference. A distant reference can shift or broaden the projected insertion site.
+- `map_introns_to_reference.py` uses a simple linear-gap fitting alignment, which is transparent and dependency-free but not a substitute for careful manual curation of difficult alignments.
 
 ## References
 
@@ -380,4 +443,3 @@ This option is useful when the reference set may itself contain intron-bearing 1
 - Quast, C., Pruesse, E., Yilmaz, P., et al. The SILVA ribosomal RNA gene database project: improved data processing and web-based tools. *Nucleic Acids Research* 41(D1), D590-D596 (2013). DOI: [10.1093/nar/gks1219](https://doi.org/10.1093/nar/gks1219).
 - Salman, V., Amann, R., Shub, D. A., and Schulz-Vogt, H. N. Multiple self-splicing introns in the 16S rRNA genes of giant sulfur bacteria. *Proceedings of the National Academy of Sciences* 109, 4203-4208 (2012). DOI: [10.1073/pnas.1120192109](https://doi.org/10.1073/pnas.1120192109).
 - Hausner, G., Hafez, M., and Edgell, D. R. Bacterial group I introns: mobile RNA catalysts. *Mobile DNA* 5, 8 (2014). DOI: [10.1186/1759-8753-5-8](https://doi.org/10.1186/1759-8753-5-8).
-
