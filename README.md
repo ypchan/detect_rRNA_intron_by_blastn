@@ -42,6 +42,9 @@ Clone the repository and install the Python dependencies:
 gh repo clone ypchan/detect_rRNA_intron_by_blastn
 cd ddetect_rRNA_intron_by_blastn
 python -m pip install -r requirements.txt
+chmod 755 detect_rRNA_intron_by_blastn.py
+abspath=$(realpath detect_rRNA_intron_by_blastn.py)
+ln -s ${abspath} "$HOME/bin"
 ```
 
 For modes that run BLAST internally, install NCBI BLAST+ and make sure `blastn` and `makeblastdb` are available on `PATH`.
@@ -64,7 +67,7 @@ qseqid sseqid pident length qstart qend sstart send evalue bitscore
 ```
 
 ```bash
-python detect_rRNA_intron_by_blastn.py \
+detect_rRNA_intron_by_blastn.py \
   --query query_16s.fa \
   --blast query_vs_reference.blastn.tsv \
   --taxonomy reference.tax.tsv \
@@ -74,7 +77,7 @@ python detect_rRNA_intron_by_blastn.py \
 ### Use an existing BLAST database
 
 ```bash
-python detect_rRNA_intron_by_blastn.py \
+detect_rRNA_intron_by_blastn.py \
   --query query_16s.fa \
   --db /path/to/reference_db_prefix \
   --taxonomy reference.tax.tsv \
@@ -91,7 +94,7 @@ ACGT...
 ```
 
 ```bash
-python detect_rRNA_intron_by_blastn.py \
+detect_rRNA_intron_by_blastn.py \
   --query query_16s.fa \
   --ref-fasta SILVA_16S_reference.fa.gz \
   --outdir intron_scan
