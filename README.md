@@ -146,8 +146,12 @@ standard_16S:between:788-789
 This means the intron is inserted between reference positions 788 and 789 in 1-based reference coordinates. If the flanking bases map across a reference gap or deletion, the script reports a `span` coordinate rather than pretending the site is exact.
 
 ## Algorithm Details
+### detect_rRAN_intron_by_blastn.py
 
 ![algorithm details](figures/algorithm_framework.png)
+
+### map introns to reference.py
+![algorithm details](figures/map_introns.png)
 
 
 ### 1. HSP parsing and filtering
